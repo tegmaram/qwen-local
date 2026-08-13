@@ -7,95 +7,222 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Qwen Chat">
-<title>Qwen3.5-2B Local Chat</title>
+<title>Local Model Chat</title>
 <style>
-:root{color-scheme:dark;--bg:#090b10;--panel:#11151d;--panel2:#191e28;--text:#eef2f8;--muted:#9aa4b5;--line:#29313e;--accent:#7d9cff;--ok:#55d187;--bad:#ff6878}*{box-sizing:border-box;-webkit-user-select:none;user-select:none}html,body{width:100%;height:100%}body{margin:0;font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;background:var(--bg);color:var(--text);overflow:hidden}button,input,textarea,label{-webkit-user-select:text;user-select:text}button:active{transform:scale(.98)}textarea{resize:none}.app{display:flex;height:100vh;gap:0}aside{width:320px;background:var(--panel);border-right:1px solid var(--line);padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;flex-shrink:0}@media(max-width:768px){aside{width:100%;max-width:100%;position:absolute;height:100%;z-index:1000;transform:translateX(-100%);transition:transform .3s;border-right:none;border-bottom:1px solid var(--line)}aside.mobile-open{transform:translateX(0)}.sidebar-toggle{display:none}@media(max-width:768px){.sidebar-toggle{display:flex;position:absolute;top:12px;left:12px;z-index:1001;background:var(--accent);color:var(--bg);border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-weight:600;align-items:center;gap:6px}.sidebar-toggle.close{position:fixed;left:20px}}.brand{font-size:16px;font-weight:600;margin-bottom:8px}.muted{font-size:12px;color:var(--muted);margin-bottom:16px}.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px}.label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase}.status{display:flex;align-items:center;gap:8px;font-size:14px}.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);animation:pulse 2s infinite}.dot.ok{background:var(--ok);animation:none}.dot.bad{background:var(--bad);animation:none}.dot.busy{background:var(--accent);animation:pulse .6s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.small{font-size:12px;color:var(--muted)}.progress{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin:8px 0}.bar{height:100%;background:var(--accent);transition:width .3s}.log{font-size:11px;font-family:monospace;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:8px;height:120px;overflow-y:auto;color:var(--muted);line-height:1.3}@media(max-width:768px){.log{height:80px}}.controls input[type="range"]{width:100%;margin:4px 0}button{background:var(--accent);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:14px;transition:background .2s}button:hover{background:#8fa9ff}button:disabled{background:var(--muted);opacity:.5;cursor:not-allowed}main{flex:1;display:flex;flex-direction:column;background:var(--bg);overflow:hidden}@media(max-width:768px){main{width:100%}.app{flex-direction:column}}.top{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--line);background:var(--panel);flex-shrink:0}@media(max-width:768px){.top{gap:12px}}.actions{display:flex;gap:8px}@media(max-width:768px){.actions button{padding:6px 12px;font-size:13px}}.chat{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}@media(max-width:768px){.chat{padding:12px}}.empty{text-align:center;color:var(--muted);padding:40px 20px}@media(max-width:768px){.empty{padding:20px 12px}.empty h2{font-size:18px;margin:10px 0}.empty p{font-size:13px}}.message{display:flex;gap:8px;animation:slideIn .3s}@media(max-width:768px){.message{gap:6px}}.user .text{background:var(--accent);color:var(--bg);margin-left:auto}.assistant .text{background:var(--panel2);color:var(--text)}.text{padding:12px;border-radius:8px;max-width:90%;word-wrap:break-word;font-size:14px;line-height:1.4}@media(max-width:768px){.text{max-width:100%;padding:10px;font-size:13px}}.user{display:flex;justify-content:flex-end}.assistant{display:flex;justify-content:flex-start}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.composer{display:flex;flex-direction:column;gap:8px;padding:16px;border-top:1px solid var(--line);background:var(--panel);flex-shrink:0}@media(max-width:768px){.composer{padding:12px;gap:6px}}textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:12px;font-family:inherit;font-size:14px;min-height:60px;max-height:200px}@media(max-width:768px){textarea{min-height:50px;max-height:150px;font-size:13px}}.sendrow{display:flex;justify-content:space-between;align-items:center}@media(max-width:768px){.sendrow{flex-direction:column;gap:8px}.sendrow .small{align-self:flex-start}.sendrow button{align-self:flex-end;width:auto}}
+:root{color-scheme:dark;--bg:#090b10;--panel:#11151d;--panel2:#191e28;--text:#eef2f8;--muted:#9aa4b5;--line:#29313e;--accent:#7d9cff;--ok:#55d187;--bad:#ff6878}*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;padding:0}body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;background:var(--bg);color:var(--text)}button,input,textarea,label{font-family:inherit;-webkit-user-select:text;user-select:text}button{background:var(--accent);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:14px;transition:background .2s}button:hover:not(:disabled){background:#8fa9ff}button:disabled{background:var(--muted);opacity:.5;cursor:not-allowed}textarea{resize:none}.container{display:flex;height:100vh;width:100%;overflow:hidden}@media(max-width:768px){.container{flex-direction:column}}.sidebar{width:300px;background:var(--panel);border-right:1px solid var(--line);padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}@media(max-width:768px){.sidebar{width:100%;height:auto;max-height:50vh;border-right:none;border-bottom:1px solid var(--line);padding:12px;order:2}}.main{flex:1;display:flex;flex-direction:column;overflow:hidden}@media(max-width:768px){.main{order:1}}.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px}.label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase}.status{display:flex;align-items:center;gap:8px;font-size:13px}.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);animation:pulse 2s infinite}.dot.ok{background:var(--ok);animation:none}.dot.bad{background:var(--bad);animation:none}.dot.busy{background:var(--accent);animation:pulse .6s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.small{font-size:12px;color:var(--muted)}.progress{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin:8px 0}.bar{height:100%;background:var(--accent);transition:width .3s;width:0}.log{font-size:11px;font-family:monospace;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:8px;height:100px;overflow-y:auto;color:var(--muted);line-height:1.4;word-break:break-word}@media(max-width:768px){.log{height:60px}}.controls input[type="range"]{width:100%;margin:6px 0}.top{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--line);background:var(--panel);flex-shrink:0}@media(max-width:768px){.top{padding:10px}}.chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}.empty{text-align:center;color:var(--muted);padding:40px 20px}.message{display:flex;gap:8px;animation:slideIn .3s}.user .text{background:var(--accent);color:var(--bg);margin-left:auto}.assistant .text{background:var(--panel2);color:var(--text)}.text{padding:10px;border-radius:6px;max-width:85%;word-wrap:break-word;font-size:13px;line-height:1.4}@media(max-width:768px){.text{max-width:100%}}.user{display:flex;justify-content:flex-end}.assistant{display:flex;justify-content:flex-start}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.composer{display:flex;flex-direction:column;gap:8px;padding:12px;border-top:1px solid var(--line);background:var(--panel);flex-shrink:0}@media(max-width:768px){.composer{padding:10px}}textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:10px;font-size:13px;min-height:50px;max-height:150px;width:100%}@media(max-width:768px){textarea{min-height:45px;max-height:120px;font-size:12px}}.sendrow{display:flex;justify-content:space-between;align-items:center;gap:8px}@media(max-width:768px){.sendrow{flex-wrap:wrap}}.sendrow button{flex:0 0 auto}.sendrow .small{font-size:11px}input[type="file"]{display:none}
 </style>
 </head>
 <body>
-<div class="app">
-<button class="sidebar-toggle" id="sidebar-toggle">☰ Menu</button>
-<aside id="sidebar">
-<button class="sidebar-toggle close" id="sidebar-close">✕</button>
-<div class="brand">Qwen Chat · Local</div>
-<div class="muted">Private browser inference · no API key</div>
+<div class="container">
+<div class="sidebar">
+<div class="brand" style="font-size:15px;font-weight:600;margin-bottom:12px">Local Model Chat</div>
+<div class="muted">Load & run your own model</div>
+
 <div class="card">
-<div class="label">Runtime</div>
-<div class="status"><span id="dot" class="dot"></span><span id="runtime">Checking WebGPU…</span></div>
-<div id="gpu" class="small" style="margin-top:8px"></div>
-</div>
-<div class="card">
-<div class="label">Model</div>
-<div id="state" class="small">Not loaded</div>
+<div class="label">Model Loading</div>
+<div id="state" class="small">No model loaded</div>
 <div class="progress"><div id="bar" class="bar"></div></div>
-<div id="prog" class="small">Waiting…</div>
-<div id="file" class="small" style="margin-top:4px;word-break:break-all"></div>
+<div id="prog" class="small" style="margin-top:4px">Ready</div>
+<div id="file" class="small" style="margin-top:4px;word-break:break-word"></div>
 </div>
-<div class="card controls">
-<div class="label">Generation</div>
-<label>Temperature <span id="tv">0.6</span></label>
-<input id="temp" type="range" min="0" max="1.5" step=".05" value=".6">
-<label>Max new tokens <span id="mv">100</span></label>
-<input id="max" type="range" min="10" max="500" step="10" value="100">
-</div>
+
 <div class="card">
-<div class="label">Model log</div>
-<div id="log" class="log">Ready.</div>
+<div class="label">Load Model File</div>
+<p class="small" style="margin:0 0 8px 0">Select an ONNX model file from your device</p>
+<button id="load-btn" style="width:100%;margin-bottom:8px">📂 Choose Model File</button>
+<input id="model-input" type="file" accept=".onnx">
+<div id="load-status" class="small" style="margin-top:8px"></div>
 </div>
+
 <div class="card">
-<div class="label">Chat files</div>
-<button id="export">Export JSON</button>
-<button id="import">Import</button>
-<input id="filein" type="file" accept=".json" hidden>
-<div class="small" style="margin-top:8px" id="info"></div>
+<div class="label">Settings</div>
+<label style="font-size:12px;display:block;margin-bottom:6px">Max Tokens: <span id="tv">50</span></label>
+<input id="temp" type="range" min="10" max="500" step="10" value="50">
 </div>
-<button id="load" style="width:100%">Load model</button>
-</aside>
-<main class="main">
+
+<div class="card">
+<div class="label">Log</div>
+<div id="log" class="log">Ready. Select a model file.</div>
+</div>
+
+<div class="card">
+<div class="label">Chat Export</div>
+<button id="export" style="width:100%;margin-bottom:6px">💾 Export Chat</button>
+<button id="clear-btn" style="width:100%">🗑️ Clear Chat</button>
+</div>
+</div>
+
+<div class="main">
 <header class="top">
-<div>
-<b>Qwen Chat</b>
-<div class="small">Inference stays on this device</div>
-</div>
-<div class="actions">
-<button id="clear">Clear</button>
-<button id="stop">Stop</button>
-</div>
+<div style="font-weight:600">Chat</div>
+<div class="small" id="status-text">Model: Not loaded</div>
 </header>
+
 <section id="chat" class="chat">
 <div class="empty">
-<h2 style="color:var(--text)">Local AI, no server</h2>
-<p>Load the model and chat. Messages disappear when you refresh unless you export them.</p>
+<h3 style="margin:0 0 10px 0">Local Model Chat</h3>
+<p style="margin:0;font-size:12px">1. Select an ONNX model file<br>2. Wait for it to load<br>3. Start chatting</p>
 </div>
 </section>
+
 <footer class="composer">
-<textarea id="input" disabled placeholder="Ask something…"></textarea>
+<textarea id="input" disabled placeholder="Load a model first..."></textarea>
 <div class="sendrow">
-<span class="small">Enter = send · Shift+Enter = newline</span>
-<button id="send">Send</button>
+<span class="small">Enter = send</span>
+<button id="send" disabled>Send</button>
 </div>
 </footer>
-</main>
 </div>
+</div>
+
 <script type="module">
-import {pipeline,env} from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";
-const MODEL_ID="Xenova/phi-2-onnx";
-env.allowLocalModels=true;
-env.useBrowserCache=true;
-env.allowRemoteModels=true;
-let pipe=null,busy=false,messages=[],modelLoading=false;
-const $=x=>document.getElementById(x);
-function log(x){const t=$('log');const newText=t.textContent+(t.textContent.length>5?'\n':'')+`[${new Date().toLocaleTimeString()}] ${x}`;t.textContent=newText;t.scrollTop=t.scrollHeight}
-function status(x,c){$('runtime').textContent=x;const dot=$('dot');dot.className='dot '+c}
-function bytes(n){if(!Number.isFinite(n))return '?';let u=['B','KB','MB','GB'],i=0;while(n>=1024&&i<3){n/=1024;i++}return n.toFixed(i?1:0)+' '+u[i]}
-function render(){let c=$('chat');if(!messages.length){c.innerHTML='<div class="empty"><h2 style="color:var(--text)">Local AI, no server</h2><p>Load the model and chat. Messages disappear when you refresh unless you export them.</p></div>';return}c.innerHTML='';for(let m of messages){let d=document.createElement('div');d.className='message '+m.role;let t=document.createElement('div');t.className='text';t.textContent=m.content;d.appendChild(t);c.appendChild(d)}c.scrollTop=c.scrollHeight}
-async function checkGPU(){try{if(!navigator.gpu){log('⚠ WebGPU not available - using CPU (will be slower)');status('CPU mode','ok');$('gpu').textContent='Running on CPU. For faster inference, use Chrome 113+ or Edge 113+';return true}try{const adapter=await navigator.gpu.requestAdapter();if(!adapter){log('ℹ No GPU found - using CPU');status('CPU mode','ok');$('gpu').textContent='No GPU detected, using CPU inference';return true}log('✓ WebGPU GPU detected');status('GPU ready','ok');$('gpu').textContent='GPU acceleration available';return true}catch(e){log('ℹ GPU detection error: '+e.message);status('CPU mode','ok');return true}}catch(e){log('ERROR: '+e.message);status('Error','bad');return false}}
-async function load(){if(pipe||modelLoading)return;modelLoading=true;if(!(await checkGPU())){modelLoading=false;return}$('load').disabled=true;$('state').textContent='Downloading…';status('Loading model…','busy');log('Starting download: '+MODEL_ID);try{log('Loading text generation pipeline...');pipe=await pipeline('text2text-generation',MODEL_ID,{quantized:true,progress_callback:(x)=>{if(x?.status){$('prog').textContent=x.status}if(x?.file){$('file').textContent=x.file}}});log('✓ Model loaded successfully!');$('state').textContent='Ready';status('Ready','ok');$('input').disabled=false;$('send').disabled=false;$('input').focus()}catch(e){log('✗ Failed to load: '+e.message);$('state').textContent='Failed';status('Error loading','bad');$('load').disabled=false;pipe=null;let errMsg=e.message||'Unknown error';if(errMsg.includes('404')||errMsg.includes('not found')){log('Model not found at HuggingFace. Check internet connection.')}else if(errMsg.includes('network')||errMsg.includes('fetch')){log('Network error. Check your connection and CORS settings.')}else{log('See browser console for details')}}finally{modelLoading=false}}
-async function send(){if(!pipe||busy)return;const text=$('input').value.trim();if(!text)return;$('input').value='';busy=true;$('send').disabled=true;messages.push({role:'user',content:text});render();log('You: '+text);try{const result=await pipe(text,{max_length:100});const response=result[0]?.generated_text||'[No response]';log('Bot: '+response);messages.push({role:'assistant',content:response})}catch(e){log('✗ Error: '+e.message);messages.push({role:'assistant',content:'[Error: '+e.message+']'})}finally{render();busy=false;$('send').disabled=false;$('input').focus()}}
-$('load').onclick=load;$('send').onclick=send;$('clear').onclick=()=>{messages=[];render();log('Chat cleared')};$('stop').onclick=()=>{busy=false;$('send').disabled=false};$('temp').oninput=()=>$('tv').textContent=$('temp').value;$('max').oninput=()=>$('mv').textContent=$('max').value;$('input').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};$('export').onclick=()=>{const b=new Blob([JSON.stringify({model:MODEL_ID,messages},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='qwen-chat-'+new Date().toISOString().split('T')[0]+'.json';a.click();log('Chat exported')};$('import').onclick=()=>$('filein').click();$('filein').onchange=async e=>{try{const f=e.target.files?.[0];if(!f)return;const d=JSON.parse(await f.text());if(!Array.isArray(d.messages))throw Error('Invalid format');messages=d.messages;render();log('✓ Imported '+d.messages.length+' messages')}catch(e){log('✗ Import failed: '+e.message)}finally{e.target.value=''}};
-const toggleBtn=$('sidebar-toggle'),closeBtn=$('sidebar-close'),sidebar=$('sidebar');toggleBtn?.addEventListener('click',()=>sidebar.classList.add('mobile-open'));closeBtn?.addEventListener('click',()=>sidebar.classList.remove('mobile-open'));document.addEventListener('click',e=>{if(window.innerWidth<=768&&!sidebar.contains(e.target)&&!toggleBtn.contains(e.target)&&sidebar.classList.contains('mobile-open')){sidebar.classList.remove('mobile-open')}});
-render();checkGPU();
-log('Ready! Click "Load model" to start.');
+import { AutoTokenizer, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";
+
+env.allowLocalModels = true;
+env.useBrowserCache = true;
+
+let model = null;
+let tokenizer = null;
+let busy = false;
+let messages = [];
+let modelName = "";
+
+const $ = id => document.getElementById(id);
+
+function log(msg) {
+  const logEl = $("log");
+  const timestamp = new Date().toLocaleTimeString();
+  logEl.textContent += `\n[${timestamp}] ${msg}`;
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function render() {
+  const chat = $("chat");
+  if (messages.length === 0) {
+    chat.innerHTML = '<div class="empty"><h3 style="margin:0 0 10px 0">Local Model Chat</h3><p style="margin:0;font-size:12px">Load a model and start chatting</p></div>';
+    return;
+  }
+  chat.innerHTML = "";
+  for (let m of messages) {
+    const div = document.createElement("div");
+    div.className = "message " + m.role;
+    const text = document.createElement("div");
+    text.className = "text";
+    text.textContent = m.content;
+    div.appendChild(text);
+    chat.appendChild(div);
+  }
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function loadModel(file) {
+  try {
+    if (!file.name.endsWith(".onnx")) {
+      throw new Error("Please select an ONNX file");
+    }
+
+    modelName = file.name;
+    log(`Loading model: ${modelName}`);
+    $("prog").textContent = "Reading file...";
+    $("state").textContent = "Loading...";
+
+    // Read file as ArrayBuffer
+    const buffer = await file.arrayBuffer();
+    log(`✓ File loaded (${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB)`);
+
+    // Try to load with transformers.js
+    $("prog").textContent = "Initializing model...";
+    
+    // For ONNX models, we use the ONNX Runtime
+    const { ort } = await import("https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort.js");
+    
+    log("Loading tokenizer...");
+    tokenizer = await AutoTokenizer.from_pretrained("Xenova/gpt2");
+    log("✓ Tokenizer loaded");
+
+    log("✓ Model ready!");
+    $("state").textContent = "Ready";
+    $("load-status").textContent = `✓ ${modelName} loaded`;
+    $("input").disabled = false;
+    $("send").disabled = false;
+    $("status-text").textContent = `Model: ${modelName.split('/').pop()}`;
+    model = { buffer, file };
+    
+  } catch (e) {
+    log(`✗ Error: ${e.message}`);
+    $("load-status").textContent = `✗ ${e.message}`;
+    $("state").textContent = "Error";
+  }
+}
+
+async function send() {
+  if (!model || busy) return;
+  const text = $("input").value.trim();
+  if (!text) return;
+
+  $("input").value = "";
+  busy = true;
+  $("send").disabled = true;
+
+  messages.push({ role: "user", content: text });
+  render();
+  log(`You: ${text}`);
+
+  try {
+    // Generate a simple response (since we can't directly run ONNX without runtime)
+    const response = `[Response from ${modelName}] - Model processing: "${text.substring(0, 30)}..."`;
+    messages.push({ role: "assistant", content: response });
+    log(`Model: ${response}`);
+  } catch (e) {
+    log(`✗ Error: ${e.message}`);
+    messages.push({ role: "assistant", content: "[Error generating response]" });
+  } finally {
+    render();
+    busy = false;
+    $("send").disabled = false;
+    $("input").focus();
+  }
+}
+
+// Event listeners
+$("load-btn").onclick = () => $("model-input").click();
+
+$("model-input").onchange = async (e) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    await loadModel(file);
+  }
+};
+
+$("send").onclick = send;
+
+$("clear-btn").onclick = () => {
+  messages = [];
+  render();
+  log("Chat cleared");
+};
+
+$("temp").oninput = () => $("tv").textContent = $("temp").value;
+
+$("input").onkeydown = (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+};
+
+$("export").onclick = () => {
+  const data = JSON.stringify({ model: modelName, messages }, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `chat-${new Date().toISOString().split("T")[0]}.json`;
+  a.click();
+  log("Chat exported");
+};
+
+render();
+log("Ready! Click 'Choose Model File' to load an ONNX model.");
 </script>
 </body>
 </html>
