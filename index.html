@@ -104,12 +104,12 @@ textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line)
 </div>
 
 <script type="module">
-import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.webgpu.min.js';
 import { AutoTokenizer, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
 
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
+let ort = null;
 let session = null;
 let tokenizer = null;
 let busy = false;
@@ -168,8 +168,24 @@ window.clearFile = (type) => {
 $("onnx-input").onchange = e => { if (e.target.files[0]) { onnxFile = e.target.files[0]; $("onnx-name").value = onnxFile.name; updateFileDisplay(); } };
 $("data-input").onchange = e => { if (e.target.files[0]) { dataFile = e.target.files[0]; $("data-name").value = dataFile.name; updateFileDisplay(); } };
 
+async function loadOrt() {
+    if (ort) return ort;
+    log("Loading ONNX Runtime WebGPU...");
+    const module = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.webgpu.min.js');
+    ort = module.default || module;
+    if (!ort.InferenceSession) {
+        throw new Error("ONNX Runtime failed to initialize. Check browser WebGPU support.");
+    }
+    ort.env.wasm.numThreads = 1;
+    ort.env.wasm.simd = true;
+    log("✓ ONNX Runtime loaded");
+    return ort;
+}
+
 async function loadModel() {
     try {
+        const runtime = await loadOrt();
+        
         log(`Loading ${onnxFile.name}...`);
         $("state").textContent = "Reading files...";
         $("bar").style.width = "30%";
@@ -183,12 +199,16 @@ async function loadModel() {
         $("bar").style.width = "60%";
         $("state").textContent = "Creating ONNX session...";
 
+        const externalDataName = onnxFile.name.endsWith('.onnx') 
+            ? onnxFile.name.slice(0, -5) + '.onnx_data'
+            : onnxFile.name + '.onnx_data';
+
         const externalData = [{
-            name: onnxFile.name.replace(/\.onnx$/, '') + '.onnx_data',
+            name: externalDataName,
             data: new Uint8Array(dataBuf)
         }];
 
-        session = await ort.InferenceSession.create(modelBuf, {
+        session = await runtime.InferenceSession.create(modelBuf, {
             executionProviders: ['webgpu', 'wasm'],
             externalData: externalData
         });
@@ -245,8 +265,6 @@ async function generate(prompt, maxTokens) {
 
         feeds['input_ids'] = new ort.Tensor('int64', BigInt64Array.from(tokens.map(t => BigInt(t))), [batchSize, seqLen]);
         feeds['attention_mask'] = new ort.Tensor('int64', BigInt64Array.from({ length: seqLen }, () => 1n), [batchSize, seqLen]);
-
-        const totalLen = currentLength + seqLen;
         feeds['position_ids'] = new ort.Tensor('int64', BigInt64Array.from({ length: seqLen }, (_, idx) => BigInt(currentLength + idx)), [batchSize, seqLen]);
 
         for (const [name, tensor] of Object.entries(kvCache)) {
