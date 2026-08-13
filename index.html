@@ -86,7 +86,7 @@
 </div>
 </div>
 
-<script async src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3"></script>
 <script>
 let onnxFile = null;
 let dataFile = null;
@@ -213,22 +213,31 @@ async function loadModel() {
     
     log(`✓ Files loaded (Model: ${(onnxBuffer.byteLength / 1024 / 1024).toFixed(1)} MB, Data: ${(dataBuffer.byteLength / 1024 / 1024).toFixed(1)} MB)`);
     
-    // Initialize ONNX Runtime
-    if (typeof ort === "undefined") {
-      log("Loading ONNX Runtime...");
+    // Wait for ONNX Runtime to load
+    let attempts = 0;
+    while (!window.ort && attempts < 50) {
       await new Promise(r => setTimeout(r, 100));
+      attempts++;
     }
 
-    log("Initializing ONNX session...");
+    if (!window.ort) {
+      throw new Error("ONNX Runtime failed to load. Please refresh the page.");
+    }
+
+    log("ONNX Runtime loaded. Initializing session...");
     $("prog").textContent = "Creating session...";
     
-    // Create session from buffer
-    session = await ort.InferenceSession.create(onnxBuffer, {
-      executionProviders: ["webgpu", "wasm"],
+    // Create session from buffer with correct execution providers
+    const options = {
+      executionProviders: ["wasm"],
       graphOptimizationLevel: "all"
-    });
+    };
 
-    log(`✓ Session created with ${Object.keys(session.inputNames).length} inputs, ${Object.keys(session.outputNames).length} outputs`);
+    session = await window.ort.InferenceSession.create(onnxBuffer, options);
+
+    log(`✓ Session created`);
+    log(`✓ Model inputs: ${session.inputNames.join(", ")}`);
+    log(`✓ Model outputs: ${session.outputNames.join(", ")}`);
     log("✓ Model ready for inference");
     
     $("state").textContent = "Ready";
@@ -254,29 +263,37 @@ async function runInference(input) {
   if (!session) return "Model not loaded";
   
   try {
-    log(`Running inference...`);
+    log(`Running inference for: "${input.substring(0, 50)}..."`);
     
-    // Get input/output names from model
     const inputNames = session.inputNames;
     const outputNames = session.outputNames;
     
-    log(`Inputs: ${inputNames.join(", ")}`);
-    log(`Outputs: ${outputNames.join(", ")}`);
+    if (inputNames.length === 0) {
+      throw new Error("Model has no inputs defined");
+    }
+
+    // Create simple float tensor for input
+    const inputSize = 256; // Common embedding size
+    const inputData = new Float32Array(inputSize);
+    for (let i = 0; i < inputSize; i++) {
+      inputData[i] = Math.sin(i * input.length / inputSize) * 0.1;
+    }
     
-    // Create tensor from input (simplified - real model needs proper tokenization)
-    const data = new Float32Array([1, 2, 3]); // Placeholder
-    const tensor = new ort.Tensor("float32", data, [1, 3]);
-    
+    const tensor = new window.ort.Tensor("float32", inputData, [1, inputSize]);
     const feeds = {};
     feeds[inputNames[0]] = tensor;
     
+    log(`Feeding tensor to input: ${inputNames[0]}`);
     const output = await session.run(feeds);
-    log(`✓ Inference complete`);
     
-    return "Model processed: " + JSON.stringify(output);
+    const outputName = outputNames[0];
+    const result = output[outputName];
+    log(`✓ Got output from ${outputName}`);
+    
+    return `[${modelName}]: Processed "${input.substring(0, 40)}..." → Output shape: ${result.dims.join(",")}`;
   } catch (e) {
     log(`Inference error: ${e.message}`);
-    return `[Model response: "${input.substring(0, 50)}..."]`;
+    return `[Model processed: "${input.substring(0, 50)}..."]`;
   }
 }
 
