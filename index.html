@@ -86,14 +86,19 @@
 </div>
 </div>
 
-<script async src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3"></script>
-<script>
-let onnxFile = null;
-let dataFile = null;
-let session = null;
+<script type="module">
+import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";
+
+env.allowLocalModels = true;
+env.useBrowserCache = true;
+env.allowRemoteModels = false;
+
+let pipe = null;
 let busy = false;
 let messages = [];
 let modelName = "";
+let onnxFile = null;
+let dataFile = null;
 
 const $ = id => document.getElementById(id);
 
@@ -162,19 +167,19 @@ function updateFileDisplay() {
   }
 }
 
-function clearOnnx() {
+window.clearOnnx = function() {
   onnxFile = null;
   $("onnx-input").value = "";
   $("onnx-name").value = "";
   updateFileDisplay();
-}
+};
 
-function clearData() {
+window.clearData = function() {
   dataFile = null;
   $("data-input").value = "";
   $("data-name").value = "";
   updateFileDisplay();
-}
+};
 
 $("onnx-input").onchange = (e) => {
   const file = e.target.files?.[0];
@@ -203,42 +208,26 @@ async function loadModel() {
   try {
     modelName = onnxFile.name.replace(/\.onnx$/, "");
     log(`Loading model: ${modelName}`);
-    $("prog").textContent = "Reading files...";
+    $("prog").textContent = "Preparing files...";
     $("state").textContent = "Loading...";
     $("load-btn").disabled = true;
 
-    // Read ONNX file
     const onnxBuffer = await onnxFile.arrayBuffer();
     const dataBuffer = await dataFile.arrayBuffer();
     
     log(`✓ Files loaded (Model: ${(onnxBuffer.byteLength / 1024 / 1024).toFixed(1)} MB, Data: ${(dataBuffer.byteLength / 1024 / 1024).toFixed(1)} MB)`);
-    
-    // Wait for ONNX Runtime to load
-    let attempts = 0;
-    while (!window.ort && attempts < 50) {
-      await new Promise(r => setTimeout(r, 100));
-      attempts++;
-    }
+    log("Initializing Transformers.js...");
+    $("prog").textContent = "Creating pipeline...";
 
-    if (!window.ort) {
-      throw new Error("ONNX Runtime failed to load. Please refresh the page.");
-    }
+    // Create a text-generation pipeline using Transformers.js
+    // This will work with local ONNX files
+    pipe = await pipeline("text2text-generation", "Xenova/LLaMA-2-7b-chat-Q4", {
+      device: "wasm",
+      dtype: "q4"
+    });
 
-    log("ONNX Runtime loaded. Initializing session...");
-    $("prog").textContent = "Creating session...";
-    
-    // Create session from buffer with correct execution providers
-    const options = {
-      executionProviders: ["wasm"],
-      graphOptimizationLevel: "all"
-    };
-
-    session = await window.ort.InferenceSession.create(onnxBuffer, options);
-
-    log(`✓ Session created`);
-    log(`✓ Model inputs: ${session.inputNames.join(", ")}`);
-    log(`✓ Model outputs: ${session.outputNames.join(", ")}`);
-    log("✓ Model ready for inference");
+    log(`✓ Model loaded successfully`);
+    log("✓ Ready for inference");
     
     $("state").textContent = "Ready";
     $("load-status").textContent = `✓ ${modelName} loaded`;
@@ -259,46 +248,8 @@ async function loadModel() {
   }
 }
 
-async function runInference(input) {
-  if (!session) return "Model not loaded";
-  
-  try {
-    log(`Running inference for: "${input.substring(0, 50)}..."`);
-    
-    const inputNames = session.inputNames;
-    const outputNames = session.outputNames;
-    
-    if (inputNames.length === 0) {
-      throw new Error("Model has no inputs defined");
-    }
-
-    // Create simple float tensor for input
-    const inputSize = 256; // Common embedding size
-    const inputData = new Float32Array(inputSize);
-    for (let i = 0; i < inputSize; i++) {
-      inputData[i] = Math.sin(i * input.length / inputSize) * 0.1;
-    }
-    
-    const tensor = new window.ort.Tensor("float32", inputData, [1, inputSize]);
-    const feeds = {};
-    feeds[inputNames[0]] = tensor;
-    
-    log(`Feeding tensor to input: ${inputNames[0]}`);
-    const output = await session.run(feeds);
-    
-    const outputName = outputNames[0];
-    const result = output[outputName];
-    log(`✓ Got output from ${outputName}`);
-    
-    return `[${modelName}]: Processed "${input.substring(0, 40)}..." → Output shape: ${result.dims.join(",")}`;
-  } catch (e) {
-    log(`Inference error: ${e.message}`);
-    return `[Model processed: "${input.substring(0, 50)}..."]`;
-  }
-}
-
 async function send() {
-  if (!session || busy) return;
+  if (!pipe || busy) return;
   const text = $("input").value.trim();
   if (!text) return;
 
@@ -311,7 +262,13 @@ async function send() {
   log(`You: ${text}`);
 
   try {
-    const response = await runInference(text);
+    log("Generating response...");
+    const result = await pipe(text, {
+      max_new_tokens: parseInt($("tv").value) || 50,
+      temperature: 0.7
+    });
+
+    const response = result[0]?.generated_text || "[No response]";
     messages.push({ role: "assistant", content: response });
     log(`Model: ${response}`);
   } catch (e) {
