@@ -17,7 +17,7 @@
 <button class="sidebar-toggle" id="sidebar-toggle">☰ Menu</button>
 <aside id="sidebar">
 <button class="sidebar-toggle close" id="sidebar-close">✕</button>
-<div class="brand">Qwen3.5-2B · Local</div>
+<div class="brand">Qwen Chat · Local</div>
 <div class="muted">Private browser inference · no API key</div>
 <div class="card">
 <div class="label">Runtime</div>
@@ -54,7 +54,7 @@
 <main class="main">
 <header class="top">
 <div>
-<b>Qwen3.5-2B Chat</b>
+<b>Qwen Chat</b>
 <div class="small">Inference stays on this device</div>
 </div>
 <div class="actions">
@@ -78,24 +78,24 @@
 </main>
 </div>
 <script type="module">
-import {AutoProcessor,Qwen3_5ForConditionalGeneration,TextStreamer,env} from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";
-const MODEL="Qwen/Qwen2.5-0.5B";
+import {pipeline,env} from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";
+const MODEL_ID="Xenova/phi-2-onnx";
 env.allowLocalModels=true;
 env.useBrowserCache=true;
 env.allowRemoteModels=true;
-let processor=null,model=null,busy=false,messages=[],modelLoading=false;
+let pipe=null,busy=false,messages=[],modelLoading=false;
 const $=x=>document.getElementById(x);
-function log(x){const t=$('log');t.textContent+="\n["+new Date().toLocaleTimeString()+"] "+x;t.scrollTop=t.scrollHeight}
-function status(x,c){$('runtime').textContent=x;$('dot').className='dot '+c}
+function log(x){const t=$('log');const newText=t.textContent+(t.textContent.length>5?'\n':'')+`[${new Date().toLocaleTimeString()}] ${x}`;t.textContent=newText;t.scrollTop=t.scrollHeight}
+function status(x,c){$('runtime').textContent=x;const dot=$('dot');dot.className='dot '+c}
 function bytes(n){if(!Number.isFinite(n))return '?';let u=['B','KB','MB','GB'],i=0;while(n>=1024&&i<3){n/=1024;i++}return n.toFixed(i?1:0)+' '+u[i]}
 function render(){let c=$('chat');if(!messages.length){c.innerHTML='<div class="empty"><h2 style="color:var(--text)">Local AI, no server</h2><p>Load the model and chat. Messages disappear when you refresh unless you export them.</p></div>';return}c.innerHTML='';for(let m of messages){let d=document.createElement('div');d.className='message '+m.role;let t=document.createElement('div');t.className='text';t.textContent=m.content;d.appendChild(t);c.appendChild(d)}c.scrollTop=c.scrollHeight}
-async function checkGPU(){try{if(!navigator.gpu){status('WebGPU unavailable','bad');$('gpu').textContent='Use a recent browser with WebGPU support (Chrome 113+, Edge 113+).';log('ERROR: WebGPU unavailable. Trying CPU mode.');return true}const adapter=await navigator.gpu.requestAdapter();if(!adapter){status('No GPU found','bad');$('gpu').textContent='WebGPU available but no compatible GPU.';log('WARN: No GPU found. Using CPU inference (slow).');return true}const info=await adapter.requestAdapterInfo();status('WebGPU ready','ok');$('gpu').textContent=info.description||'WebGPU GPU available';return true}catch(e){log('ERROR checking GPU: '+e.message);status('Error checking GPU','bad');return true}}
-function progress(x){const p=Number.isFinite(x?.progress)?x.progress:null;if(p!==null)$('bar').style.width=Math.max(0,Math.min(100,p*100))+'%';if(x?.file)$('file').textContent=x.file.split('/').pop();if(x?.status)$('prog').textContent=x.status}
-async function load(){if(model||modelLoading)return;modelLoading=true;if(!(await checkGPU()))return;$('load').disabled=true;$('state').textContent='Loading…';status('Loading model…','busy');log('Downloading '+MODEL+'...');try{processor=await AutoProcessor.from_pretrained(MODEL,{progress_callback:progress});log('✓ Processor loaded');$('state').textContent='Loading model weights…';model=await Qwen3_5ForConditionalGeneration.from_pretrained(MODEL,{dtype:'q4',device_map:'auto',progress_callback:progress});log('✓ Model loaded successfully');$('state').textContent='Ready for chat';status('Ready','ok');$('input').disabled=false;$('send').disabled=false}catch(e){log('ERROR loading model: '+e.message);$('state').textContent='Failed to load';status('Error loading','bad');$('load').disabled=false;model=null;processor=null}finally{modelLoading=false}}
-async function send(){if(!model||busy)return;const text=$('input').value.trim();if(!text)return;$('input').value='';busy=true;$('send').disabled=true;messages.push({role:'user',content:text});render();$('input').placeholder='Generating…';log('User: '+text);try{let id=await processor(text);$('input').placeholder='Ask something…';const output=[];const streamer=new TextStreamer(processor.tokenizer,{skip_prompt:true,skip_special_tokens:true});for await(const chunk of streamer.stream(model.generate(id,{max_new_tokens:parseInt($('max').value)||100,temperature:parseFloat($('temp').value)||0.6}))){output.push(chunk);if(messages[messages.length-1].role==='assistant'){messages[messages.length-1].content+=chunk}else{messages.push({role:'assistant',content:chunk})}render()}const assistant=messages[messages.length-1].content;log('Assistant: '+assistant)}catch(e){log('ERROR generating: '+e.message);messages.push({role:'assistant',content:'[Error generating response: '+e.message+']'});render()}finally{busy=false;$('send').disabled=false;$('input').focus()}}
-$('load').onclick=load;$('send').onclick=send;$('clear').onclick=()=>{messages=[];render()};$('stop').onclick=()=>{busy=false;$('send').disabled=false};$('temp').oninput=()=>$('tv').textContent=$('temp').value;$('max').oninput=()=>$('mv').textContent=$('max').value;$('input').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};$('export').onclick=()=>{const b=new Blob([JSON.stringify({model:MODEL,messages},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='qwen-chat-'+new Date().toISOString().split('T')[0]+'.json';a.click()};$('import').onclick=()=>$('filein').click();$('filein').onchange=async e=>{try{const f=e.target.files?.[0];if(!f)return;const d=JSON.parse(await f.text());if(!Array.isArray(d.messages))throw Error('Invalid format');messages=d.messages;render();log('Imported '+d.messages.length+' messages')}catch(e){log('ERROR importing: '+e.message)}finally{e.target.value=''}};
+async function checkGPU(){try{if(!navigator.gpu){log('⚠ WebGPU not available - using CPU (will be slower)');status('CPU mode','ok');$('gpu').textContent='Running on CPU. For faster inference, use Chrome 113+ or Edge 113+';return true}try{const adapter=await navigator.gpu.requestAdapter();if(!adapter){log('ℹ No GPU found - using CPU');status('CPU mode','ok');$('gpu').textContent='No GPU detected, using CPU inference';return true}log('✓ WebGPU GPU detected');status('GPU ready','ok');$('gpu').textContent='GPU acceleration available';return true}catch(e){log('ℹ GPU detection error: '+e.message);status('CPU mode','ok');return true}}catch(e){log('ERROR: '+e.message);status('Error','bad');return false}}
+async function load(){if(pipe||modelLoading)return;modelLoading=true;if(!(await checkGPU())){modelLoading=false;return}$('load').disabled=true;$('state').textContent='Downloading…';status('Loading model…','busy');log('Starting download: '+MODEL_ID);try{log('Loading text generation pipeline...');pipe=await pipeline('text2text-generation',MODEL_ID,{quantized:true,progress_callback:(x)=>{if(x?.status){$('prog').textContent=x.status}if(x?.file){$('file').textContent=x.file}}});log('✓ Model loaded successfully!');$('state').textContent='Ready';status('Ready','ok');$('input').disabled=false;$('send').disabled=false;$('input').focus()}catch(e){log('✗ Failed to load: '+e.message);$('state').textContent='Failed';status('Error loading','bad');$('load').disabled=false;pipe=null;let errMsg=e.message||'Unknown error';if(errMsg.includes('404')||errMsg.includes('not found')){log('Model not found at HuggingFace. Check internet connection.')}else if(errMsg.includes('network')||errMsg.includes('fetch')){log('Network error. Check your connection and CORS settings.')}else{log('See browser console for details')}}finally{modelLoading=false}}
+async function send(){if(!pipe||busy)return;const text=$('input').value.trim();if(!text)return;$('input').value='';busy=true;$('send').disabled=true;messages.push({role:'user',content:text});render();log('You: '+text);try{const result=await pipe(text,{max_length:100});const response=result[0]?.generated_text||'[No response]';log('Bot: '+response);messages.push({role:'assistant',content:response})}catch(e){log('✗ Error: '+e.message);messages.push({role:'assistant',content:'[Error: '+e.message+']'})}finally{render();busy=false;$('send').disabled=false;$('input').focus()}}
+$('load').onclick=load;$('send').onclick=send;$('clear').onclick=()=>{messages=[];render();log('Chat cleared')};$('stop').onclick=()=>{busy=false;$('send').disabled=false};$('temp').oninput=()=>$('tv').textContent=$('temp').value;$('max').oninput=()=>$('mv').textContent=$('max').value;$('input').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};$('export').onclick=()=>{const b=new Blob([JSON.stringify({model:MODEL_ID,messages},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='qwen-chat-'+new Date().toISOString().split('T')[0]+'.json';a.click();log('Chat exported')};$('import').onclick=()=>$('filein').click();$('filein').onchange=async e=>{try{const f=e.target.files?.[0];if(!f)return;const d=JSON.parse(await f.text());if(!Array.isArray(d.messages))throw Error('Invalid format');messages=d.messages;render();log('✓ Imported '+d.messages.length+' messages')}catch(e){log('✗ Import failed: '+e.message)}finally{e.target.value=''}};
 const toggleBtn=$('sidebar-toggle'),closeBtn=$('sidebar-close'),sidebar=$('sidebar');toggleBtn?.addEventListener('click',()=>sidebar.classList.add('mobile-open'));closeBtn?.addEventListener('click',()=>sidebar.classList.remove('mobile-open'));document.addEventListener('click',e=>{if(window.innerWidth<=768&&!sidebar.contains(e.target)&&!toggleBtn.contains(e.target)&&sidebar.classList.contains('mobile-open')){sidebar.classList.remove('mobile-open')}});
 render();checkGPU();
+log('Ready! Click "Load model" to start.');
 </script>
 </body>
 </html>
