@@ -202,7 +202,7 @@ async function loadModel() {
         const modelBuf = await download(base + 'onnx/' + modelName, 'Model', 10, 15);
         const dataBuf = await download(base + 'onnx/' + modelName + '_data', 'Weights', 15, 55);
         $("bar").style.width = "55%";
-        const externalData = [{ name: modelName + '_data', data: new Uint8Array(dataBuf) }];
+        const externalData = [{ path: modelName + '_data', data: new Uint8Array(dataBuf) }];
         session = await runtime.InferenceSession.create(modelBuf, {
             executionProviders: ['wasm'], graphOptimizationLevel: 'all', externalData
         });
