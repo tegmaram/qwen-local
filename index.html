@@ -167,11 +167,20 @@ async function loadOrt() {
     return ort;
 }
 
+const DB_NAME = 'qwen35-local-cache';
+function cacheOpen() { return new Promise((resolve,reject)=>{ const r=indexedDB.open(DB_NAME,1); r.onupgradeneeded=()=>r.result.createObjectStore('files'); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error); }); }
+async function cacheGet(key) { const db=await cacheOpen(); return new Promise((resolve,reject)=>{ const r=db.transaction('files').objectStore('files').get(key); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error); }); }
+async function cachePut(key,value) { const db=await cacheOpen(); return new Promise((resolve,reject)=>{ const r=db.transaction('files','readwrite').objectStore('files').put(value,key); r.onsuccess=resolve; r.onerror=()=>reject(r.error); }); }
+
 async function loadModel() {
     const base = 'https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX/resolve/main/';
     const modelName = 'decoder_model_merged_q4f16.onnx';
     try {
-        $("state").textContent = "Connecting to Hugging Face…";
+        const saved = await cacheGet('qwen35-q4f16');
+        if (saved && !confirm('A saved Qwen3.5 2B model is available. Use it?')) {
+            if (!confirm('Download Qwen3.5 2B again?')) return;
+        }
+        $("state").textContent = saved ? "Restoring saved model…" : "Connecting to Hugging Face…";
         $("prog").textContent = "0% · starting model loader";
         $("debug").textContent = "Target: onnx-community/Qwen3.5-2B-ONNX / q4f16";
         $("prog").textContent = "Initializing WASM runtime…";
@@ -199,8 +208,9 @@ async function loadModel() {
             for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
             return result.buffer;
         };
-        const modelBuf = await download(base + 'onnx/' + modelName, 'Model', 10, 15);
-        const dataBuf = await download(base + 'onnx/' + modelName + '_data', 'Weights', 15, 55);
+        const modelBuf = saved ? saved.model : await download(base + 'onnx/' + modelName, 'Model', 10, 15);
+        const dataBuf = saved ? saved.data : await download(base + 'onnx/' + modelName + '_data', 'Weights', 15, 55);
+        if (!saved) { await cachePut('qwen35-q4f16', {model: modelBuf, data: dataBuf}); $("prog").textContent = '100% · Saved locally for future visits'; }
         $("bar").style.width = "55%";
         const externalData = [{ path: modelName + '_data', data: new Uint8Array(dataBuf) }];
         session = await runtime.InferenceSession.create(modelBuf, {
@@ -217,7 +227,7 @@ async function loadModel() {
         ["input", "send"].forEach(id => $(id).disabled = false);
         log("✓ Qwen3.5 2B loaded entirely in the browser");
     } catch (e) {
-        log(`✗ ${e.message}`); $("state").textContent = "Error"; $("load-status").textContent = `✗ ${e.message}`; $("prog").textContent = `Download failed: ${e.message}`; console.error(e);
+        log(`✗ ${e?.message || String(e)}`); $("state").textContent = "Error"; $("load-status").textContent = `✗ ${e?.message || String(e)}`; $("prog").textContent = `Download failed: ${e?.message || String(e)}`; console.error(e);
     } finally {  }
 }
 async function generate(prompt, maxTokens) {
@@ -297,7 +307,7 @@ async function send() {
         log(`✓ Generated response (${reply.length} chars)`);
     } catch (e) {
         messages.push({ role: "assistant", content: `[Error: ${e.message}]` });
-        log(`✗ ${e.message}`);
+        log(`✗ ${e?.message || String(e)}`);
         console.error(e);
     } finally {
         render();
