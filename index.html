@@ -152,14 +152,6 @@ function updateFileDisplay() {
     $("load-status").style.color = ready ? "var(--ok)" : "var(--muted)";
 }
 
-window.clearFile = (type) => {
-    if (type === 'onnx') { onnxFile = null; $("onnx-input").value = ""; $("onnx-name").value = ""; }
-    else { dataFile = null; $("data-input").value = ""; $("data-name").value = ""; }
-    updateFileDisplay();
-};
-
-$("onnx-input").onchange = e => { if (e.target.files[0]) { onnxFile = e.target.files[0]; $("onnx-name").value = onnxFile.name; updateFileDisplay(); } };
-$("data-input").onchange = e => { if (e.target.files[0]) { dataFile = e.target.files[0]; $("data-name").value = dataFile.name; updateFileDisplay(); } };
 
 async function loadOrt() {
     if (ort) return ort;
