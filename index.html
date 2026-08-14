@@ -175,14 +175,16 @@ async function loadModel() {
     const base = 'https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX/resolve/main/';
     const modelName = 'decoder_model_merged_q4f16.onnx';
     try {
+        $("state").textContent = "Connecting to Hugging Face…";
+        $("prog").textContent = "Initializing WASM runtime…";
         const runtime = await loadOrt();
         $("state").textContent = "Downloading Qwen3.5 2B q4f16…";
         $("load-status").textContent = "First load is about 1.1 GB; subsequent loads use the browser cache.";
         $("bar").style.width = "10%";
         log("Fetching the verified onnx-community q4f16 WebAssembly model…");
         const download = async (url, label, start, end) => {
-            const response = await fetch(url);
-            if (!response.ok || !response.body) throw new Error('Could not download ' + label + ' from Hugging Face.');
+            const response = await fetch(url + '?download=true', { mode: 'cors', cache: 'force-cache' });
+            if (!response.ok || !response.body) throw new Error('Could not download ' + label + ' from Hugging Face (HTTP ' + response.status + ').');
             const total = Number(response.headers.get('content-length')) || 0;
             let received = 0; const chunks = []; const reader = response.body.getReader();
             while (true) {
@@ -214,7 +216,7 @@ async function loadModel() {
         ["input", "send"].forEach(id => $(id).disabled = false);
         log("✓ Qwen3.5 2B loaded entirely in the browser");
     } catch (e) {
-        log(`✗ ${e.message}`); $("state").textContent = "Error"; $("load-status").textContent = `✗ ${e.message}`; console.error(e);
+        log(`✗ ${e.message}`); $("state").textContent = "Error"; $("load-status").textContent = `✗ ${e.message}`; $("prog").textContent = `Download failed: ${e.message}`; console.error(e);
     } finally {  }
 }
 async function generate(prompt, maxTokens) {
