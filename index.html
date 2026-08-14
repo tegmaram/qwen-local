@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Local ONNX Chat</title>
+<title>Qwen3.5 2B · Local WASM Chat</title>
 <style>
 :root{color-scheme:dark;--bg:#090b10;--panel:#11151d;--panel2:#191e28;--text:#eef2f8;--muted:#9aa4b5;--line:#29313e;--accent:#7d9cff;--ok:#55d187;--bad:#ff6878}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;padding:0}
@@ -45,32 +45,18 @@ textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line)
 <body>
 <div class="container">
 <div class="sidebar">
-<div class="brand" style="font-size:15px;font-weight:600;margin-bottom:12px">Local ONNX Chat</div>
+<div class="brand" style="font-size:15px;font-weight:600;margin-bottom:12px">Qwen3.5 2B · Local WASM Chat</div>
 <div class="muted">Run raw ONNX models locally</div>
 <div class="card">
 <div class="label">Model Status</div>
 <div id="state" class="small">No model loaded</div>
 <div class="progress"><div id="bar" class="bar"></div></div>
-<div id="prog" class="small" style="margin-top:4px">Ready</div>
+<div id="prog" class="small" style="margin-top:4px">Waiting for loader…</div><div id="debug" class="small" style="margin-top:6px;word-break:break-word"></div>
 </div>
 <div class="card">
-<div class="label">Load Model Files</div>
-<p class="small" style="margin:0 0 8px 0">Select both .onnx and .onnx_data</p>
-<div class="file-inputs">
-<div class="file-input-row">
-<input type="text" id="onnx-name" placeholder=".onnx file" readonly>
-<button onclick="document.getElementById('onnx-input').click()">Browse</button>
-<input id="onnx-input" type="file" accept=".onnx">
-</div>
-<div class="file-input-row">
-<input type="text" id="data-name" placeholder=".onnx_data file" readonly>
-<button onclick="document.getElementById('data-input').click()">Browse</button>
-<input id="data-input" type="file" accept=".onnx_data">
-</div>
-</div>
-<button id="load-btn" style="width:100%;margin-top:8px" disabled>Load Model</button>
-<div id="load-status" class="small" style="margin-top:8px"></div>
-<div class="loaded-files" id="loaded-files"></div>
+<div class="label">Automatic model download</div>
+<div id="load-status" class="small">Preparing Qwen3.5 2B q4f16…</div>
+<div id="download-size" class="small" style="margin-top:6px"></div>
 </div>
 <div class="card">
 <div class="label">Settings</div>
@@ -79,7 +65,7 @@ textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line)
 </div>
 <div class="card">
 <div class="label">Log</div>
-<div id="log" class="log">Ready. Select both model files.</div>
+<div id="log" class="log">Starting automatic model download…</div>
 </div>
 </div>
 <div class="main">
@@ -90,11 +76,11 @@ textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line)
 <section id="chat" class="chat">
 <div class="empty">
 <h3 style="margin:0 0 10px 0">Local ONNX Chat</h3>
-<p style="margin:0;font-size:12px">Load both files to start chatting</p>
+<p style="margin:0;font-size:12px">The model loads automatically from Hugging Face</p>
 </div>
 </section>
 <footer class="composer">
-<textarea id="input" disabled placeholder="Load a model first..."></textarea>
+<textarea id="input" disabled placeholder="Downloading model…"></textarea>
 <div class="sendrow">
 <span class="small">Enter = send</span>
 <button id="send" disabled>Send</button>
@@ -103,11 +89,18 @@ textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line)
 </div>
 </div>
 
+<script>
+window.addEventListener('error', e => { const x=document.getElementById('prog'); if(x) x.textContent='JavaScript error: '+e.message; const l=document.getElementById('log'); if(l) l.textContent+='\n[ERROR] '+e.message; });
+window.addEventListener('unhandledrejection', e => { const m=e.reason?.message||String(e.reason); const x=document.getElementById('prog'); if(x) x.textContent='Startup error: '+m; const l=document.getElementById('log'); if(l) l.textContent+='\n[ERROR] '+m; });
+</script>
 <script type="module">
 import { AutoTokenizer, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
 
 env.allowLocalModels = false;
+env.allowRemoteModels = true;
 env.useBrowserCache = true;
+// Keep model/tokenizer assets local; no inference request leaves the browser.
+env.localModelPath = "./models/";
 
 let ort = null;
 let session = null;
@@ -130,7 +123,7 @@ function log(msg) {
 function render() {
     const chat = $("chat");
     if (!messages.length) {
-        chat.innerHTML = '<div class="empty"><h3 style="margin:0 0 10px 0">Local ONNX Chat</h3><p style="margin:0;font-size:12px">Load both files to start chatting</p></div>';
+        chat.innerHTML = '<div class="empty"><h3 style="margin:0 0 10px 0">Local ONNX Chat</h3><p style="margin:0;font-size:12px">The model loads automatically from Hugging Face</p></div>';
         return;
     }
     chat.innerHTML = "";
@@ -159,19 +152,11 @@ function updateFileDisplay() {
     $("load-status").style.color = ready ? "var(--ok)" : "var(--muted)";
 }
 
-window.clearFile = (type) => {
-    if (type === 'onnx') { onnxFile = null; $("onnx-input").value = ""; $("onnx-name").value = ""; }
-    else { dataFile = null; $("data-input").value = ""; $("data-name").value = ""; }
-    updateFileDisplay();
-};
-
-$("onnx-input").onchange = e => { if (e.target.files[0]) { onnxFile = e.target.files[0]; $("onnx-name").value = onnxFile.name; updateFileDisplay(); } };
-$("data-input").onchange = e => { if (e.target.files[0]) { dataFile = e.target.files[0]; $("data-name").value = dataFile.name; updateFileDisplay(); } };
 
 async function loadOrt() {
     if (ort) return ort;
-    log("Loading ONNX Runtime WebGPU...");
-    const module = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.webgpu.min.js');
+    log("Loading ONNX Runtime Web (WASM)...");
+    const module = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/+esm');
     ort = module.default || module;
     if (!ort.InferenceSession) {
         throw new Error("ONNX Runtime failed to initialize. Check browser WebGPU support.");
@@ -182,73 +167,69 @@ async function loadOrt() {
     return ort;
 }
 
+const DB_NAME = 'qwen35-local-cache';
+function cacheOpen() { return new Promise((resolve,reject)=>{ const r=indexedDB.open(DB_NAME,1); r.onupgradeneeded=()=>r.result.createObjectStore('files'); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error); }); }
+async function cacheGet(key) { const db=await cacheOpen(); return new Promise((resolve,reject)=>{ const r=db.transaction('files').objectStore('files').get(key); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error); }); }
+async function cachePut(key,value) { const db=await cacheOpen(); return new Promise((resolve,reject)=>{ const r=db.transaction('files','readwrite').objectStore('files').put(value,key); r.onsuccess=resolve; r.onerror=()=>reject(r.error); }); }
+
 async function loadModel() {
+    const base = 'https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX/resolve/main/';
+    const modelName = 'decoder_model_merged_q4f16.onnx';
     try {
+        const saved = await cacheGet('qwen35-q4f16');
+        if (saved && !confirm('A saved Qwen3.5 2B model is available. Use it?')) {
+            if (!confirm('Download Qwen3.5 2B again?')) return;
+        }
+        $("state").textContent = saved ? "Restoring saved model…" : "Connecting to Hugging Face…";
+        $("prog").textContent = "0% · starting model loader";
+        $("debug").textContent = "Target: onnx-community/Qwen3.5-2B-ONNX / q4f16";
+        $("prog").textContent = "Initializing WASM runtime…";
         const runtime = await loadOrt();
-        
-        log(`Loading ${onnxFile.name}...`);
-        $("state").textContent = "Reading files...";
-        $("bar").style.width = "30%";
-
-        const [modelBuf, dataBuf] = await Promise.all([
-            onnxFile.arrayBuffer(),
-            dataFile.arrayBuffer()
-        ]);
-
-        log(`✓ Files read (${(modelBuf.byteLength / 1048576).toFixed(1)}MB + ${(dataBuf.byteLength / 1048576).toFixed(1)}MB)`);
-        $("bar").style.width = "60%";
-        $("state").textContent = "Creating ONNX session...";
-
-        const externalDataName = onnxFile.name.endsWith('.onnx') 
-            ? onnxFile.name.slice(0, -5) + '.onnx_data'
-            : onnxFile.name + '.onnx_data';
-
-        const externalData = [{
-            name: externalDataName,
-            data: new Uint8Array(dataBuf)
-        }];
-
+        $("state").textContent = "Downloading Qwen3.5 2B q4f16…";
+        $("load-status").textContent = "First load is about 1.1 GB; subsequent loads use the browser cache.";
+        $("bar").style.width = "10%";
+        log("Fetching the verified onnx-community q4f16 WebAssembly model…");
+        const download = async (url, label, start, end) => {
+            $("prog").textContent = `0% · requesting ${label}…`;
+            const response = await fetch(url + '?download=true', { mode: 'cors', cache: 'force-cache' });
+            if (!response.ok || !response.body) throw new Error('Could not download ' + label + ' from Hugging Face (HTTP ' + response.status + ').');
+            const total = Number(response.headers.get('content-length')) || 0;
+            let received = 0; const chunks = []; const reader = response.body.getReader();
+            while (true) {
+                const {done, value} = await reader.read(); if (done) break;
+                chunks.push(value); received += value.byteLength;
+                const pct = total ? received / total : 0;
+                $("bar").style.width = `${start + pct * (end - start)}%`;
+                const percent = total ? (received / total * 100).toFixed(1) : '—';
+                $("prog").textContent = `${percent}% · ${label}: ${(received / 1048576).toFixed(0)} MB${total ? ` / ${(total / 1073741824).toFixed(2)} GB` : ' · size unavailable'}`;
+                $("debug").textContent = `HTTP ${response.status} · ${response.headers.get('content-type') || 'unknown type'} · streaming`;
+            }
+            const result = new Uint8Array(received); let offset = 0;
+            for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
+            return result.buffer;
+        };
+        const modelBuf = saved ? saved.model : await download(base + 'onnx/' + modelName, 'Model', 10, 15);
+        const dataBuf = saved ? saved.data : await download(base + 'onnx/' + modelName + '_data', 'Weights', 15, 55);
+        if (!saved) { await cachePut('qwen35-q4f16', {model: modelBuf, data: dataBuf}); $("prog").textContent = '100% · Saved locally for future visits'; }
+        $("bar").style.width = "55%";
+        const externalData = [{ path: modelName + '_data', data: new Uint8Array(dataBuf) }];
         session = await runtime.InferenceSession.create(modelBuf, {
-            executionProviders: ['webgpu', 'wasm'],
-            externalData: externalData
+            executionProviders: ['wasm'], graphOptimizationLevel: 'all', externalData
         });
-
-        $("bar").style.width = "80%";
-        $("state").textContent = "Loading tokenizer...";
-        log("Initializing tokenizer (Xenova/LLaMA-2-7b-chat-Q4)...");
-
-        tokenizer = await AutoTokenizer.from_pretrained("Xenova/LLaMA-2-7b-chat-Q4", {
-            progress_callback: (p) => {
-                if (p.status === 'progress') {
-                    $("bar").style.width = `${80 + (p.progress * 0.2)}%`;
-                }
-            }
+        $("state").textContent = "Loading Qwen3.5 tokenizer…";
+        tokenizer = await AutoTokenizer.from_pretrained('onnx-community/Qwen3.5-2B-ONNX', {
+            progress_callback: p => { if (p.status === 'progress') $("bar").style.width = `${55 + p.progress * 0.45}%`; }
         });
-
-        kvCache = {};
-        currentLength = 0;
-        session.inputNames.forEach(name => {
-            if (name.includes('past_key_values') || name.includes('cache')) {
-                kvCache[name] = null;
-            }
-        });
-
-        $("bar").style.width = "100%";
-        $("state").textContent = "Ready";
-        $("status-text").textContent = `Model: ${onnxFile.name}`;
+        kvCache = {}; currentLength = 0;
+        session.inputNames.forEach(name => { if (name.includes('past_key_values') || name.includes('cache')) kvCache[name] = null; });
+        $("bar").style.width = "100%"; $("state").textContent = "Ready";
+        $("status-text").textContent = "Model: Qwen3.5 2B q4f16 · WASM";
         ["input", "send"].forEach(id => $(id).disabled = false);
-        log("✓ Model and tokenizer loaded successfully");
-
+        log("✓ Qwen3.5 2B loaded entirely in the browser");
     } catch (e) {
-        log(`✗ ${e.message}`);
-        $("state").textContent = "Error";
-        $("load-status").textContent = `✗ ${e.message}`;
-        console.error(e);
-    } finally {
-        $("load-btn").disabled = false;
-    }
+        log(`✗ ${e?.message || String(e)}`); $("state").textContent = "Error"; $("load-status").textContent = `✗ ${e?.message || String(e)}`; $("prog").textContent = `Download failed: ${e?.message || String(e)}`; console.error(e);
+    } finally {  }
 }
-
 async function generate(prompt, maxTokens) {
     log(`Tokenizing prompt...`);
     const inputIds = tokenizer.encode(prompt, { add_special_tokens: true });
@@ -271,10 +252,7 @@ async function generate(prompt, maxTokens) {
             if (tensor) {
                 feeds[name] = tensor;
             } else {
-                const numHeads = 32;
-                const headDim = 128;
-                const pastLen = currentLength;
-                feeds[name] = new ort.Tensor('float16', new Float16Array(batchSize * numHeads * pastLen * headDim).fill(0), [batchSize, numHeads, pastLen, headDim]);
+                throw new Error('This Qwen3.5 export requires its generated cache inputs; reload the complete model directory rather than a raw decoder file.');
             }
         }
 
@@ -329,7 +307,7 @@ async function send() {
         log(`✓ Generated response (${reply.length} chars)`);
     } catch (e) {
         messages.push({ role: "assistant", content: `[Error: ${e.message}]` });
-        log(`✗ ${e.message}`);
+        log(`✗ ${e?.message || String(e)}`);
         console.error(e);
     } finally {
         render();
@@ -339,7 +317,8 @@ async function send() {
     }
 }
 
-$("load-btn").onclick = loadModel;
+
+loadModel();
 $("send").onclick = send;
 $("temp").oninput = () => $("tv").textContent = $("temp").value;
 $("input").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
