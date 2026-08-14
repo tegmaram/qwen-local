@@ -51,7 +51,7 @@ textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line)
 <div class="label">Model Status</div>
 <div id="state" class="small">No model loaded</div>
 <div class="progress"><div id="bar" class="bar"></div></div>
-<div id="prog" class="small" style="margin-top:4px">Ready</div>
+<div id="prog" class="small" style="margin-top:4px">Waiting for loader…</div><div id="debug" class="small" style="margin-top:6px;word-break:break-word"></div>
 </div>
 <div class="card">
 <div class="label">Automatic model download</div>
@@ -80,7 +80,7 @@ textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line)
 </div>
 </section>
 <footer class="composer">
-<textarea id="input" disabled placeholder="Load a model first..."></textarea>
+<textarea id="input" disabled placeholder="Downloading model…"></textarea>
 <div class="sendrow">
 <span class="small">Enter = send</span>
 <button id="send" disabled>Send</button>
@@ -89,6 +89,10 @@ textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line)
 </div>
 </div>
 
+<script>
+window.addEventListener('error', e => { const x=document.getElementById('prog'); if(x) x.textContent='JavaScript error: '+e.message; const l=document.getElementById('log'); if(l) l.textContent+='\n[ERROR] '+e.message; });
+window.addEventListener('unhandledrejection', e => { const m=e.reason?.message||String(e.reason); const x=document.getElementById('prog'); if(x) x.textContent='Startup error: '+m; const l=document.getElementById('log'); if(l) l.textContent+='\n[ERROR] '+m; });
+</script>
 <script type="module">
 import { AutoTokenizer, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
 
@@ -176,6 +180,8 @@ async function loadModel() {
     const modelName = 'decoder_model_merged_q4f16.onnx';
     try {
         $("state").textContent = "Connecting to Hugging Face…";
+        $("prog").textContent = "0% · starting model loader";
+        $("debug").textContent = "Target: onnx-community/Qwen3.5-2B-ONNX / q4f16";
         $("prog").textContent = "Initializing WASM runtime…";
         const runtime = await loadOrt();
         $("state").textContent = "Downloading Qwen3.5 2B q4f16…";
@@ -183,6 +189,7 @@ async function loadModel() {
         $("bar").style.width = "10%";
         log("Fetching the verified onnx-community q4f16 WebAssembly model…");
         const download = async (url, label, start, end) => {
+            $("prog").textContent = `0% · requesting ${label}…`;
             const response = await fetch(url + '?download=true', { mode: 'cors', cache: 'force-cache' });
             if (!response.ok || !response.body) throw new Error('Could not download ' + label + ' from Hugging Face (HTTP ' + response.status + ').');
             const total = Number(response.headers.get('content-length')) || 0;
@@ -192,7 +199,9 @@ async function loadModel() {
                 chunks.push(value); received += value.byteLength;
                 const pct = total ? received / total : 0;
                 $("bar").style.width = `${start + pct * (end - start)}%`;
-                $("prog").textContent = `${label}: ${(received / 1048576).toFixed(0)} MB${total ? ` / ${(total / 1073741824).toFixed(2)} GB` : ''}`;
+                const percent = total ? (received / total * 100).toFixed(1) : '—';
+                $("prog").textContent = `${percent}% · ${label}: ${(received / 1048576).toFixed(0)} MB${total ? ` / ${(total / 1073741824).toFixed(2)} GB` : ' · size unavailable'}`;
+                $("debug").textContent = `HTTP ${response.status} · ${response.headers.get('content-type') || 'unknown type'} · streaming`;
             }
             const result = new Uint8Array(received); let offset = 0;
             for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
